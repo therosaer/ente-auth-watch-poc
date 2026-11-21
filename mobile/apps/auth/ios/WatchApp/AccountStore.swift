@@ -26,9 +26,6 @@ final class AccountStore: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    func sessionDidBecomeInactive(_ session: WCSession) {}
-    func sessionDidDeactivate(_ session: WCSession) { session.activate() }
-
     func session(_ session: WCSession, didReceiveApplicationContext context: [String: Any]) {
         apply(context)
     }
