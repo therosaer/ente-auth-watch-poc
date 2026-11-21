@@ -22,7 +22,6 @@ jobs:
 
             - name: Install Flutter
               uses: ./.github/actions/setup-flutter
-              working-directory: ${{ github.workspace }}
 
             - name: Install Rust
               uses: dtolnay/rust-toolchain@stable
