@@ -43,9 +43,16 @@ struct OTPAccount: Identifiable, Hashable {
         }
         issuer = q("issuer") ?? labelIssuer
         account = labelAccount
-        digits = kind == .steam ? 5 : (Int(q("digits") ?? "") ?? 6)
-        period = Int(q("period") ?? "") ?? 30
-        algorithm = (q("algorithm") ?? "SHA1").uppercased()
+        // Reject out-of-range values instead of showing a wrong code or crashing.
+        let digits = kind == .steam ? 5 : (Int(q("digits") ?? "") ?? 6)
+        let period = Int(q("period") ?? "") ?? 30
+        let algorithm = (q("algorithm") ?? "SHA1").uppercased()
+        guard (4...10).contains(digits),
+              (1...3600).contains(period),
+              ["SHA1", "SHA256", "SHA512"].contains(algorithm) else { return nil }
+        self.digits = digits
+        self.period = period
+        self.algorithm = algorithm
         id = url
     }
 
@@ -70,9 +77,10 @@ struct OTPAccount: Identifiable, Hashable {
             }
             return out
         }
-        var mod: UInt32 = 1
-        for _ in 0..<digits { mod = mod &* 10 }
-        let n = bin % mod
+        // UInt64 so 10^10 doesn't overflow; digits is capped at 10 in init.
+        var mod: UInt64 = 1
+        for _ in 0..<digits { mod *= 10 }
+        let n = UInt64(bin) % mod
         return String(format: "%0\(digits)d", n)
     }
 

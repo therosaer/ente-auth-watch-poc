@@ -14,11 +14,17 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # The simple-icons submodule is not tracked in this repo
+            # The simple-icons submodule is not tracked in this repo. Pin it to the
+            # same commit upstream Ente uses so the build doesn't pull whatever is
+            # on simple-icons' main branch.
             - name: Fetch simple-icons
+              env:
+                  SIMPLE_ICONS_SHA: 6dcfdc2f58f6150d7b097b5cab158d27413f6366
               run: |
                   rm -rf assets/simple-icons
-                  git clone --depth 1 https://github.com/simple-icons/simple-icons.git assets/simple-icons
+                  git init -q assets/simple-icons
+                  git -C assets/simple-icons fetch -q --depth 1 https://github.com/simple-icons/simple-icons.git "$SIMPLE_ICONS_SHA"
+                  git -C assets/simple-icons checkout -q FETCH_HEAD
 
             - name: Install Flutter
               uses: ./.github/actions/setup-flutter

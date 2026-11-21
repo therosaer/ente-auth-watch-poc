@@ -2,14 +2,23 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: AccountStore
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Codes are hidden on the always-on display and in app snapshots.
+    private var hideCodes: Bool { isLuminanceReduced || scenePhase != .active }
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.accounts.isEmpty {
-                    Text("Open Ente Auth on your iPhone to sync codes.")
-                        .multilineTextAlignment(.center)
-                        .padding()
+                if store.needsPasscode {
+                    message("Set a passcode on your Apple Watch to use Auth.")
+                } else if hideCodes {
+                    Image(systemName: "lock.fill")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                } else if store.accounts.isEmpty {
+                    message("Turn on Apple Watch sync in Ente Auth on your iPhone (Settings > Security).")
                 } else {
                     TimelineView(.periodic(from: .now, by: 1)) { timeline in
                         List(store.accounts) { acct in
@@ -20,6 +29,15 @@ struct ContentView: View {
             }
             .navigationTitle("Auth")
         }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { store.refresh() }
+        }
+    }
+
+    private func message(_ text: String) -> some View {
+        Text(text)
+            .multilineTextAlignment(.center)
+            .padding()
     }
 }
 

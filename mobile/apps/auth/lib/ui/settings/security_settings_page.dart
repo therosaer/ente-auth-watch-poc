@@ -4,6 +4,7 @@ import 'package:ente_accounts/pages/sessions_page.dart';
 import 'package:ente_accounts/services/passkey_service.dart';
 import 'package:ente_accounts/services/user_service.dart';
 import 'package:ente_auth/core/configuration.dart';
+import 'package:ente_auth/services/watch_sync_service.dart';
 import 'package:ente_auth/ui/settings/components/auth_settings_page_scaffold.dart';
 import 'package:ente_auth/utils/dialog_util.dart';
 import 'package:ente_auth/utils/toast_util.dart';
@@ -77,8 +78,34 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           showOnlyLoadingState: true,
           onTap: _openAppLock,
         ),
+        if (WatchSyncService.instance.isSupported) ...[
+          const SizedBox(height: Spacing.sm),
+          SettingsItem(
+            title: 'Sync codes to Apple Watch',
+            icon: HugeIcons.strokeRoundedSmartPhone01,
+            showChevron: false,
+            trailing: ToggleSwitchComponent.async(
+              value: () => WatchSyncService.instance.isEnabled,
+              onChanged: _toggleWatchSync,
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _toggleWatchSync() async {
+    final enable = !WatchSyncService.instance.isEnabled;
+    if (enable) {
+      final hasAuthenticated = await LocalAuthenticationService.instance
+          .requestLocalAuthentication(
+            context,
+            'Authenticate to sync your codes to Apple Watch',
+          );
+      if (!hasAuthenticated) return;
+    }
+    await WatchSyncService.instance.setEnabled(enable);
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggleEmailMFA() async {
