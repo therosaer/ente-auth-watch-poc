@@ -33,7 +33,7 @@ watch.build_configurations.each do |c|
     "MARKETING_VERSION" => "1.0",
     "CURRENT_PROJECT_VERSION" => "1",
     "SKIP_INSTALL" => "YES",
-    "ASSETCATALOG_COMPILER_APPICON_NAME" => "",
+    "ASSETCATALOG_COMPILER_APPICON_NAME" => "AppIcon",
     "ENABLE_PREVIEWS" => "YES",
     "CODE_SIGN_STYLE" => "Automatic",
     "LD_RUNPATH_SEARCH_PATHS" => ["$(inherited)", "@executable_path/Frameworks"],
