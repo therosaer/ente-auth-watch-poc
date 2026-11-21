@@ -26,6 +26,7 @@ watch.build_configurations.each do |c|
     "INFOPLIST_KEY_WKApplication" => "YES",
     "INFOPLIST_KEY_WKCompanionAppBundleIdentifier" => "io.ente.auth",
     "SDKROOT" => "watchos",
+    "SUPPORTED_PLATFORMS" => "watchos watchsimulator",
     "TARGETED_DEVICE_FAMILY" => "4",
     "WATCHOS_DEPLOYMENT_TARGET" => "9.0",
     "SWIFT_VERSION" => "5.0",
