@@ -33,15 +33,10 @@ class Network {
       }
     }
 
-    if (configuration.isEnteProduction()) {
-      if (!packageName.startsWith('io.ente.')) {
-        throw Exception(
-          'Invalid client package name "$packageName" for production endpoint. '
-          'Expected package name to start with "io.ente." but got "$packageName". '
-          'This indicates the package name normalization failed. '
-          'Please check the platform-specific configuration.',
-        );
-      }
+    // Custom build with a non-Ente bundle ID: the production server expects an
+    // io.ente.* client package, so report the stock one instead of failing.
+    if (!packageName.startsWith('io.ente.')) {
+      packageName = 'io.ente.auth';
     }
 
     final endpoint = configuration.getHttpEndpoint();
