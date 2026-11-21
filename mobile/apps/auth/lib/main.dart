@@ -11,6 +11,7 @@ import 'package:ente_auth/locale.dart';
 import 'package:ente_auth/services/auth_theme_preferences.dart';
 import 'package:ente_auth/services/authenticator_service.dart';
 import 'package:ente_auth/services/billing_service.dart';
+import 'package:ente_auth/services/watch_sync_service.dart';
 import 'package:ente_auth/services/local_backup_service.dart';
 import 'package:ente_auth/services/notification_service.dart';
 import 'package:ente_auth/services/preference_service.dart';
@@ -231,6 +232,7 @@ Future<void> _init() async {
     await LockScreenSettings.instance.setHideAppContent(false, persist: false);
   }
   AccountDeletionSettings.instance.init(host: Configuration.instance);
+  unawaited(WatchSyncService.instance.init());
   await LocalBackupService.instance.init(
     hasOptedForOfflineMode: Configuration.instance.hasOptedForOfflineMode(),
   );

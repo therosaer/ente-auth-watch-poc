@@ -38,13 +38,26 @@ jobs:
               run: pod install
               working-directory: ${{ github.workspace }}/mobile/apps/auth/ios
 
-            - name: Build (no codesign)
-              run: flutter build ios --release --no-codesign --dart-define=cronetHttpNoPlay=true
+            # Build via xcodebuild so the embedded watchOS target gets the right SDK
+            # (`flutter build ios` forces the iphoneos SDK onto every target).
+            - name: Flutter config only
+              run: flutter build ios --config-only --release --no-codesign --dart-define=cronetHttpNoPlay=true
+
+            - name: Archive (no codesign)
+              run: |
+                  xcodebuild archive \
+                      -workspace ios/Runner.xcworkspace \
+                      -scheme Runner \
+                      -configuration Release \
+                      -destination 'generic/platform=iOS' \
+                      -archivePath build/ios/Runner.xcarchive \
+                      CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
             - name: Package IPA
               run: |
                   mkdir -p Payload
-                  cp -R build/ios/iphoneos/*.app Payload/
+                  cp -R build/ios/Runner.xcarchive/Products/Applications/*.app Payload/
+                  ls Payload/*.app/Watch || true
                   zip -qr EnteAuth-unsigned.ipa Payload
 
             - uses: actions/upload-artifact@v4

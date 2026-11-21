@@ -9,6 +9,9 @@ import app_links
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
+    if let registrar = self.registrar(forPlugin: "WatchBridge") {
+      WatchBridge.shared.register(messenger: registrar.messenger())
+    }
     super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
     if let url = AppLinks.shared.getLink(launchOptions: launchOptions) {
