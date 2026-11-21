@@ -1,0 +1,209 @@
+use crate::{Dimensions, ImageResult, bounded::too_large};
+
+pub(crate) struct Downsampler {
+    source: Dimensions,
+    target: Dimensions,
+    rgb: Vec<u8>,
+    sums: Vec<[f64; 3]>,
+    row_sums: Vec<[f64; 3]>,
+    completed_rows: u32,
+}
+
+struct BufferLengths {
+    rgb: u64,
+    sums: u64,
+    row_sums: u64,
+}
+
+impl BufferLengths {
+    fn new(source: &Dimensions, target: &Dimensions) -> Self {
+        let pixels = u64::from(target.width) * u64::from(target.height);
+        let sum_rows = if source == target {
+            0
+        } else {
+            target.height.min(2)
+        };
+        Self {
+            rgb: pixels.saturating_mul(3),
+            sums: u64::from(target.width) * u64::from(sum_rows),
+            row_sums: if sum_rows == 0 {
+                0
+            } else {
+                u64::from(target.width)
+            },
+        }
+    }
+}
+
+impl Downsampler {
+    pub(crate) fn bytes(source: &Dimensions, target: &Dimensions) -> u64 {
+        let lengths = BufferLengths::new(source, target);
+        lengths
+            .rgb
+            .saturating_add(lengths.sums.saturating_mul(24))
+            .saturating_add(lengths.row_sums.saturating_mul(24))
+    }
+
+    pub(crate) fn new(source: Dimensions, target: Dimensions) -> ImageResult<Self> {
+        let lengths = BufferLengths::new(&source, &target);
+        Ok(Self {
+            rgb: if lengths.sums == 0 {
+                reserved(lengths.rgb)?
+            } else {
+                zeroed(lengths.rgb)?
+            },
+            sums: zeroed(lengths.sums)?,
+            row_sums: zeroed(lengths.row_sums)?,
+            source,
+            target,
+            completed_rows: 0,
+        })
+    }
+
+    pub(crate) fn push_row(&mut self, rgb: &[u8], y: u32) {
+        if self.sums.is_empty() {
+            self.rgb.extend_from_slice(rgb);
+        } else {
+            self.accumulate_row(rgb, y);
+        }
+    }
+
+    fn accumulate_row(&mut self, rgb: &[u8], y: u32) {
+        let ys = contributions(y, self.source.height, self.target.height);
+        self.row_sums.fill([0.0; 3]);
+        for (x, pixel) in rgb.as_chunks::<3>().0.iter().enumerate() {
+            for (dest_x, weight_x) in contributions(x as u32, self.source.width, self.target.width)
+            {
+                if weight_x == 0.0 {
+                    continue;
+                }
+                for (channel, &value) in pixel.iter().enumerate() {
+                    self.row_sums[dest_x as usize][channel] += f64::from(value) * weight_x;
+                }
+            }
+        }
+        for (dest_y, weight_y) in ys {
+            if weight_y == 0.0 {
+                continue;
+            }
+            let row = dest_y % 2;
+            for dest_x in 0..self.target.width {
+                let sum = &mut self.sums[(row * self.target.width + dest_x) as usize];
+                for (channel, value) in sum.iter_mut().enumerate() {
+                    *value += self.row_sums[dest_x as usize][channel] * weight_y;
+                }
+            }
+        }
+        let complete = ((u64::from(y) + 1) * u64::from(self.target.height)
+            / u64::from(self.source.height)) as u32;
+        self.finish_rows(complete);
+    }
+
+    fn finish_rows(&mut self, complete: u32) {
+        while self.completed_rows < complete {
+            self.finish_row(self.completed_rows);
+            self.completed_rows += 1;
+        }
+    }
+
+    fn finish_row(&mut self, y: u32) {
+        let row = y % 2;
+        for x in 0..self.target.width {
+            let sum = &mut self.sums[(row * self.target.width + x) as usize];
+            let index = (y * self.target.width + x) as usize;
+            for (channel, &value) in sum.iter().enumerate() {
+                self.rgb[index * 3 + channel] = value.round().clamp(0.0, 255.0) as u8;
+            }
+            *sum = [0.0; 3];
+        }
+    }
+
+    pub(crate) fn finish(self) -> Vec<u8> {
+        self.rgb
+    }
+}
+
+fn contributions(position: u32, source: u32, target: u32) -> [(u32, f64); 2] {
+    let start = u64::from(position) * u64::from(target);
+    let end = start + u64::from(target);
+    let first = start / u64::from(source);
+    let boundary = (first + 1) * u64::from(source);
+    let first_weight = (end.min(boundary) - start) as f64 / source as f64;
+    let second_weight = end.saturating_sub(boundary) as f64 / source as f64;
+    [
+        (first as u32, first_weight),
+        (first as u32 + 1, second_weight),
+    ]
+}
+
+fn reserved<T>(length: u64) -> ImageResult<Vec<T>> {
+    let mut buffer = Vec::new();
+    buffer
+        .try_reserve_exact(usize::try_from(length).map_err(|_| too_large())?)
+        .map_err(|_| too_large())?;
+    Ok(buffer)
+}
+
+fn zeroed<T: Default + Clone>(length: u64) -> ImageResult<Vec<T>> {
+    let mut buffer = reserved(length)?;
+    buffer.resize(length as usize, T::default());
+    Ok(buffer)
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    pub(crate) fn area_reference(
+        pixels: &[u8],
+        width: u32,
+        height: u32,
+        target: &Dimensions,
+    ) -> Vec<u8> {
+        let mut result = Vec::new();
+        for y in 0..target.height {
+            for x in 0..target.width {
+                let x0 = x as f64 * width as f64 / target.width as f64;
+                let x1 = (x + 1) as f64 * width as f64 / target.width as f64;
+                let y0 = y as f64 * height as f64 / target.height as f64;
+                let y1 = (y + 1) as f64 * height as f64 / target.height as f64;
+                let mut sums = [0.0f64; 3];
+                for sy in y0.floor() as u32..y1.ceil() as u32 {
+                    for sx in x0.floor() as u32..x1.ceil() as u32 {
+                        let weight = (x1.min((sx + 1) as f64) - x0.max(sx as f64))
+                            * (y1.min((sy + 1) as f64) - y0.max(sy as f64));
+                        for channel in 0..3 {
+                            sums[channel] +=
+                                f64::from(pixels[((sy * width + sx) * 3) as usize + channel])
+                                    * weight;
+                        }
+                    }
+                }
+                for sum in sums {
+                    result.push((sum / ((x1 - x0) * (y1 - y0))).round() as u8);
+                }
+            }
+        }
+        result
+    }
+
+    #[test]
+    fn extreme_downsampling_preserves_constant_colors() {
+        let source = Dimensions {
+            width: 1,
+            height: 1_000_000,
+        };
+        let mut output = Downsampler::new(
+            source.clone(),
+            Dimensions {
+                width: 1,
+                height: 1,
+            },
+        )
+        .unwrap();
+        for y in 0..source.height {
+            output.push_row(&[128, 127, 254], y);
+        }
+        assert_eq!(output.finish(), [128, 127, 254]);
+    }
+}

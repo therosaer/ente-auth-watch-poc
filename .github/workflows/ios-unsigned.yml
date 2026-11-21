@@ -1,0 +1,54 @@
+name: "Build iOS (unsigned IPA)"
+
+on:
+    workflow_dispatch:
+    push:
+        branches: [main]
+
+jobs:
+    build-ios:
+        runs-on: macos-latest
+        defaults:
+            run:
+                working-directory: mobile/apps/auth
+        steps:
+            - uses: actions/checkout@v4
+
+            # The simple-icons submodule is not tracked in this repo
+            - name: Fetch simple-icons
+              run: |
+                  rm -rf assets/simple-icons
+                  git clone --depth 1 https://github.com/simple-icons/simple-icons.git assets/simple-icons
+
+            - name: Install Flutter
+              uses: ./.github/actions/setup-flutter
+              working-directory: ${{ github.workspace }}
+
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: aarch64-apple-ios
+
+            - run: flutter pub get
+
+            - name: Generate Rust bindings
+              run: cargo codegen frb auth
+              working-directory: ${{ github.workspace }}/rust
+
+            - name: Install pods
+              run: pod install
+              working-directory: ${{ github.workspace }}/mobile/apps/auth/ios
+
+            - name: Build (no codesign)
+              run: flutter build ios --release --no-codesign --dart-define=cronetHttpNoPlay=true
+
+            - name: Package IPA
+              run: |
+                  mkdir -p Payload
+                  cp -R build/ios/iphoneos/Runner.app Payload/
+                  zip -qr EnteAuth-unsigned.ipa Payload
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: EnteAuth-unsigned-ipa
+                  path: mobile/apps/auth/EnteAuth-unsigned.ipa
