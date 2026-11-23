@@ -1,8 +1,23 @@
-# Custom Ente Auth
+# Custom Ente Auth (POC)
+## I DO NOT RECOMMEND YOU INSTALL THIS, IT IS ONLY AS A PROOF OF CONCEPT.
 
 A personal fork of [Ente Auth](https://github.com/ente/ente) for iOS. It adds an Apple Watch app and builds an unsigned IPA that you can sign and sideload yourself.
 
-This repo contains only the Auth app (`mobile/apps/auth`), the shared packages it needs and the Rust code. Everything else in Ente's monorepo has been removed. For Ente Auth itself, see the [upstream repository](https://github.com/ente/ente).
+
+This repo contains only the Auth app (`mobile/apps/auth`), the shared packages it needs and the Rust code. For Ente Auth itself, see the [upstream repository](https://github.com/ente/ente).
+
+## Screenshots
+
+<p align="center">
+  <img src=".github/assets/watch/phone-setting.webp" width="220" alt="Security settings on iPhone with the Sync codes to Apple Watch switch" />
+  &nbsp;
+  <img src=".github/assets/watch/watch-sync-off.png" width="220" alt="Watch app asking you to turn on sync on the iPhone" />
+</p>
+<p align="center">
+  <img src=".github/assets/watch/watch-codes-1.jpg" width="220" alt="Watch app showing codes with countdown rings" />
+  &nbsp;
+  <img src=".github/assets/watch/watch-codes-2.jpg" width="220" alt="Watch app showing more codes" />
+</p>
 
 ## What's added
 
@@ -32,7 +47,7 @@ The watch app's bundle ID is `io.ente.auth.watchkitapp`, and it needs watchOS 9 
 
 The production server expects the app's package name to start with `io.ente.`. Upstream throws an error if it doesn't. This fork reports `io.ente.auth` instead, so the app still works after you re-sign it with your own bundle ID (`mobile/packages/network/lib/network.dart`).
 
-### Unsigned IPA build
+### Unsigned IPA build (I did this because I do not own a Mac)
 
 `.github/workflows/ios-unsigned.yml` builds the iOS app with the watch app embedded, on every push to `main` or when you run it by hand. The IPA is uploaded as the `EnteAuth-unsigned-ipa` artifact.
 
