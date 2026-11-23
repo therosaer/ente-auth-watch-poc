@@ -3,6 +3,7 @@
 
 A personal fork of [Ente Auth](https://github.com/ente/ente) for iOS. It adds an Apple Watch app and builds an unsigned IPA that you can sign and sideload yourself.
 
+### Tested on a Apple Watch S8 with watchos 26.6
 
 This repo contains only the Auth app (`mobile/apps/auth`), the shared packages it needs and the Rust code. For Ente Auth itself, see the [upstream repository](https://github.com/ente/ente).
 
